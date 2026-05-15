@@ -5,7 +5,10 @@ import type { Demanda, Comentario, Prioridade, Status, Responsavel } from '@/lib
 import { format, parseISO, isPast, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
-const SENHA_GESTOR = 'Saint@2026'
+const USUARIOS = {
+  eduardo: { senha: 'Saint@2026', perfil: 'gestor' as const, nome: 'Eduardo', emoji: '👑' },
+  rodrigo:  { senha: 'Rodrigo@2026', perfil: 'analista' as const, nome: 'Rodrigo', emoji: '👤' },
+}
 
 const PRIO_LABEL: Record<Prioridade, string> = { critica: '🔴 Crítica', alta: '🟠 Alta', media: '🟡 Média', baixa: '🟢 Baixa' }
 const PRIO_ORDER: Record<Prioridade, number> = { critica: 0, alta: 1, media: 2, baixa: 3 }
@@ -16,22 +19,20 @@ const RESP_COLOR: Record<Responsavel, string> = {
   rodrigo: 'bg-purple-50 text-purple-700 border-purple-200',
 }
 
-type Perfil = 'gestor' | 'analista' | null
+type Perfil = 'gestor' | 'analista'
+type Usuario = { key: string; nome: string; perfil: Perfil; emoji: string }
 
-// ─── Login Screen ─────────────────────────────────────────────────────────────
-function LoginScreen({ onLogin }: { onLogin: (perfil: Perfil) => void }) {
+// ─── Login ────────────────────────────────────────────────────────────────────
+function LoginScreen({ onLogin }: { onLogin: (u: Usuario) => void }) {
+  const [selecionado, setSelecionado] = useState<keyof typeof USUARIOS | null>(null)
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState('')
-  const [loading, setLoading] = useState(false)
 
-  const entrar = (perfil: 'gestor' | 'analista') => {
-    setErro('')
-    if (perfil === 'gestor') {
-      if (senha !== SENHA_GESTOR) { setErro('Senha incorreta.'); return }
-    }
-    setLoading(true)
-    if (typeof window !== 'undefined') localStorage.setItem('sg_perfil', perfil)
-    setTimeout(() => { onLogin(perfil); setLoading(false) }, 300)
+  const entrar = () => {
+    if (!selecionado) return
+    const u = USUARIOS[selecionado]
+    if (senha !== u.senha) { setErro('Senha incorreta.'); return }
+    onLogin({ key: selecionado, nome: u.nome, perfil: u.perfil, emoji: u.emoji })
   }
 
   return (
@@ -43,38 +44,40 @@ function LoginScreen({ onLogin }: { onLogin: (perfil: Perfil) => void }) {
         </div>
 
         <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 space-y-4">
-          {/* Analista */}
-          <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wider mb-3">Entrar como</p>
-            <button
-              className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50 transition-all text-left"
-              onClick={() => entrar('analista')}>
-              <span className="text-2xl">👤</span>
-              <div>
-                <p className="text-sm font-600 text-black">Rodrigo</p>
-                <p className="text-xs text-gray-400">Visualizar, atualizar status e comentar</p>
-              </div>
-            </button>
+          <p className="text-xs text-gray-400 uppercase tracking-wider">Quem é você?</p>
+
+          <div className="grid grid-cols-2 gap-3">
+            {(Object.keys(USUARIOS) as (keyof typeof USUARIOS)[]).map(key => {
+              const u = USUARIOS[key]
+              const ativo = selecionado === key
+              return (
+                <button key={key}
+                  className={`flex flex-col items-center gap-2 p-4 rounded-xl border transition-all ${ativo ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}
+                  onClick={() => { setSelecionado(key); setSenha(''); setErro('') }}>
+                  <span className="text-3xl">{u.emoji}</span>
+                  <span className={`text-sm font-600 ${ativo ? 'text-blue-700' : 'text-black'}`}>{u.nome}</span>
+                </button>
+              )
+            })}
           </div>
 
-          <div className="border-t border-gray-200" />
-
-          {/* Gestor */}
-          <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wider mb-3">Acesso gestor</p>
-            <input
-              className="field mb-3"
-              type="password"
-              placeholder="Senha do gestor"
-              value={senha}
-              onChange={e => setSenha(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') entrar('gestor') }}
-            />
-            {erro && <p className="text-xs text-red-500 mb-2">{erro}</p>}
-            <button className="btn-primary w-full" onClick={() => entrar('gestor')} disabled={loading}>
-              {loading ? 'Entrando...' : '🔐 Entrar como Gestor'}
-            </button>
-          </div>
+          {selecionado && (
+            <div className="space-y-3 pt-1">
+              <input
+                className="field"
+                type="password"
+                placeholder={`Senha de ${USUARIOS[selecionado].nome}`}
+                value={senha}
+                autoFocus
+                onChange={e => { setSenha(e.target.value); setErro('') }}
+                onKeyDown={e => { if (e.key === 'Enter') entrar() }}
+              />
+              {erro && <p className="text-xs text-red-500">{erro}</p>}
+              <button className="btn-primary w-full" onClick={entrar}>
+                Entrar como {USUARIOS[selecionado].nome}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -120,7 +123,7 @@ function ConfirmModal({ msg, onConfirm, onCancel }: { msg: string; onConfirm: ()
   )
 }
 
-// ─── Demanda Form ─────────────────────────────────────────────────────────────
+// ─── Form ─────────────────────────────────────────────────────────────────────
 function DemandaForm({ initial, onSave, onClose }: {
   initial?: Partial<Demanda>
   onSave: (d: Partial<Demanda>) => Promise<void>
@@ -217,18 +220,17 @@ function DemandaForm({ initial, onSave, onClose }: {
 }
 
 // ─── Drawer ───────────────────────────────────────────────────────────────────
-function DemandaDrawer({ demanda, perfil, onClose, onStatusChange, onDelete, onEdit }: {
+function DemandaDrawer({ demanda, usuario, onClose, onStatusChange, onDelete, onEdit }: {
   demanda: Demanda
-  perfil: Perfil
+  usuario: Usuario
   onClose: () => void
   onStatusChange: (id: string, status: Status) => Promise<void>
   onDelete: (id: string) => Promise<void>
   onEdit: () => void
 }) {
-  const isGestor = perfil === 'gestor'
+  const isGestor = usuario.perfil === 'gestor'
   const [comentarios, setComentarios] = useState<Comentario[]>([])
   const [texto, setTexto] = useState('')
-  const [autor, setAutor] = useState(() => typeof window !== 'undefined' ? localStorage.getItem('nome_usuario') || (perfil === 'analista' ? 'Rodrigo' : '') : '')
   const [sending, setSending] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
@@ -244,13 +246,8 @@ function DemandaDrawer({ demanda, perfil, onClose, onStatusChange, onDelete, onE
   useEffect(() => { loadComentarios() }, [loadComentarios])
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [comentarios])
 
-  const saveAutor = (v: string) => {
-    setAutor(v)
-    if (typeof window !== 'undefined') localStorage.setItem('nome_usuario', v)
-  }
-
   const sendComentario = async () => {
-    if (!texto.trim() || !autor.trim()) return
+    if (!texto.trim()) return
     setSending(true)
     let evidencia_url = null, evidencia_nome = null
     if (pendingFile) {
@@ -266,7 +263,7 @@ function DemandaDrawer({ demanda, perfil, onClose, onStatusChange, onDelete, onE
     await fetch('/api/comentarios', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ demanda_id: demanda.id, autor, texto, evidencia_url, evidencia_nome }),
+      body: JSON.stringify({ demanda_id: demanda.id, autor: usuario.nome, texto, evidencia_url, evidencia_nome }),
     })
     setTexto('')
     await loadComentarios()
@@ -340,21 +337,18 @@ function DemandaDrawer({ demanda, perfil, onClose, onStatusChange, onDelete, onE
         </div>
 
         <div className="p-5 border-t border-gray-100 space-y-3">
-          <input className="field" placeholder="Seu nome" value={autor} onChange={e => saveAutor(e.target.value)} />
-          <textarea className="field" rows={2} placeholder="Adicionar atualização..." value={texto} onChange={e => setTexto(e.target.value)}
+          <textarea className="field" rows={2} placeholder={`Adicionar atualização como ${usuario.nome}...`} value={texto} onChange={e => setTexto(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) sendComentario() }} />
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <button className="btn-ghost text-xs flex items-center gap-1.5" onClick={() => fileRef.current?.click()}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                {pendingFile ? pendingFile.name.slice(0, 20) + '…' : 'Evidência'}
-              </button>
-              <input type="file" ref={fileRef} className="hidden" onChange={e => setPendingFile(e.target.files?.[0] || null)} />
-            </div>
+            <button className="btn-ghost text-xs flex items-center gap-1.5" onClick={() => fileRef.current?.click()}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              {pendingFile ? pendingFile.name.slice(0, 20) + '…' : 'Evidência'}
+            </button>
+            <input type="file" ref={fileRef} className="hidden" onChange={e => setPendingFile(e.target.files?.[0] || null)} />
             <div className="flex gap-2">
               {isGestor && <button className="btn-ghost text-xs text-red-400 hover:text-red-600" onClick={() => setConfirmDel(true)}>Excluir</button>}
               {isGestor && <button className="btn-ghost text-xs" onClick={onEdit}>Editar</button>}
-              <button className="btn-primary text-sm" onClick={sendComentario} disabled={sending || uploading || !texto.trim() || !autor.trim()}>
+              <button className="btn-primary text-sm" onClick={sendComentario} disabled={sending || uploading || !texto.trim()}>
                 {uploading ? 'Enviando...' : sending ? 'Salvando...' : 'Enviar'}
               </button>
             </div>
@@ -397,7 +391,7 @@ function StatsBar({ demandas }: { demandas: Demanda[] }) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function Home() {
-  const [perfil, setPerfil] = useState<Perfil>(null)
+  const [usuario, setUsuario] = useState<Usuario | null>(null)
   const [demandas, setDemandas] = useState<Demanda[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -409,8 +403,8 @@ export default function Home() {
   const [search, setSearch] = useState('')
 
   useEffect(() => {
-    const saved = typeof window !== 'undefined' ? localStorage.getItem('sg_perfil') as Perfil : null
-    if (saved) setPerfil(saved)
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('sg_usuario') : null
+    if (saved) { try { setUsuario(JSON.parse(saved)) } catch { setLoading(false) } }
     else setLoading(false)
   }, [])
 
@@ -421,11 +415,16 @@ export default function Home() {
     setLoading(false)
   }, [])
 
-  useEffect(() => { if (perfil) load() }, [perfil, load])
+  useEffect(() => { if (usuario) load() }, [usuario, load])
+
+  const handleLogin = (u: Usuario) => {
+    if (typeof window !== 'undefined') localStorage.setItem('sg_usuario', JSON.stringify(u))
+    setUsuario(u)
+  }
 
   const sair = () => {
-    if (typeof window !== 'undefined') localStorage.removeItem('sg_perfil')
-    setPerfil(null)
+    if (typeof window !== 'undefined') localStorage.removeItem('sg_usuario')
+    setUsuario(null)
     setDemandas([])
   }
 
@@ -458,9 +457,9 @@ export default function Home() {
     setSelectedDemanda(null)
   }
 
-  if (!perfil) return <LoginScreen onLogin={p => setPerfil(p)} />
+  if (!usuario) return <LoginScreen onLogin={handleLogin} />
 
-  const isGestor = perfil === 'gestor'
+  const isGestor = usuario.perfil === 'gestor'
 
   const filtered = demandas
     .filter(d => filterStatus === 'todas' || d.status === filterStatus)
@@ -477,11 +476,11 @@ export default function Home() {
           <p className="text-sm text-gray-400 mt-0.5">
             Saint Germain Brand &nbsp;·&nbsp;
             <span className={isGestor ? 'text-blue-600' : 'text-purple-600'}>
-              {isGestor ? '🔐 Gestor' : '👤 Rodrigo'}
+              {usuario.emoji} {usuario.nome}
             </span>
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           {isGestor && (
             <button className="btn-primary flex items-center gap-2" onClick={() => { setEditingDemanda(null); setShowForm(true) }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -530,9 +529,7 @@ export default function Home() {
           <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full spin" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-20">
-          <p className="text-gray-400 text-sm">Nenhuma demanda encontrada.</p>
-        </div>
+        <div className="text-center py-20"><p className="text-gray-400 text-sm">Nenhuma demanda encontrada.</p></div>
       ) : (
         <div className="space-y-2">
           {filtered.map((d, i) => (
@@ -579,7 +576,7 @@ export default function Home() {
       {selectedDemanda && (
         <DemandaDrawer
           demanda={selectedDemanda}
-          perfil={perfil}
+          usuario={usuario}
           onClose={() => setSelectedDemanda(null)}
           onStatusChange={statusChange}
           onDelete={deleteDemanda}
