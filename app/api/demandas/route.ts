@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
       titulo: body.titulo,
       descricao: body.descricao,
       prioridade: body.prioridade,
+      responsavel: body.responsavel || 'geral',
       status: 'pendente',
       prazo: body.prazo || null,
       tags: body.tags || [],

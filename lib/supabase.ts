@@ -7,6 +7,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 export type Prioridade = 'critica' | 'alta' | 'media' | 'baixa'
 export type Status = 'pendente' | 'em_andamento' | 'concluido' | 'bloqueado'
+export type Responsavel = 'geral' | 'rodrigo'
 
 export interface Demanda {
   id: string
@@ -14,6 +15,7 @@ export interface Demanda {
   descricao: string
   prioridade: Prioridade
   status: Status
+  responsavel: Responsavel
   prazo: string | null
   criado_em: string
   atualizado_em: string
