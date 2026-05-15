@@ -445,7 +445,7 @@ export default function Home() {
   const filtered = demandas
     .filter(d => filterStatus === 'todas' || d.status === filterStatus)
     .filter(d => filterPrio === 'todas' || d.prioridade === filterPrio)
-    .filter(d => filterResp === 'todas' || d.responsavel === filterResp)
+    .filter(d => !isGestor ? (d.responsavel === usuario.key) : (filterResp === 'todas' || d.responsavel === filterResp))
     .filter(d => !search || d.titulo.toLowerCase().includes(search.toLowerCase()) || d.descricao?.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => PRIO_ORDER[a.prioridade] - PRIO_ORDER[b.prioridade])
 
@@ -494,15 +494,17 @@ export default function Home() {
             </button>
           ))}
         </div>
-        <div className="flex gap-1.5 flex-wrap">
-          {(['todas', 'geral', 'rodrigo'] as const).map(r => (
-            <button key={r}
-              className={`text-xs px-3 py-1.5 rounded-lg border transition-all ${filterResp === r ? (r === 'todas' ? 'border-blue-500 text-blue-600 bg-blue-50' : r === 'rodrigo' ? 'border-purple-300 text-purple-700 bg-purple-50' : 'border-blue-300 text-blue-700 bg-blue-50') : 'border-gray-200 text-gray-400 hover:text-black'}`}
-              onClick={() => setFilterResp(r)}>
-              {r === 'todas' ? 'Todos resp.' : RESP_LABEL[r as Responsavel]}
-            </button>
-          ))}
-        </div>
+        {isGestor && (
+          <div className="flex gap-1.5 flex-wrap">
+            {(['todas', 'geral', 'rodrigo'] as const).map(r => (
+              <button key={r}
+                className={`text-xs px-3 py-1.5 rounded-lg border transition-all ${filterResp === r ? (r === 'todas' ? 'border-blue-500 text-blue-600 bg-blue-50' : r === 'rodrigo' ? 'border-purple-300 text-purple-700 bg-purple-50' : 'border-blue-300 text-blue-700 bg-blue-50') : 'border-gray-200 text-gray-400 hover:text-black'}`}
+                onClick={() => setFilterResp(r)}>
+                {r === 'todas' ? 'Todos resp.' : RESP_LABEL[r as Responsavel]}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {loading ? (
