@@ -5,6 +5,8 @@ import type { Demanda, Comentario, Prioridade, Status, Responsavel } from '@/lib
 import { format, parseISO, isPast, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
+const SENHA_GESTOR = 'Saint@2026'
+
 const PRIO_LABEL: Record<Prioridade, string> = { critica: '🔴 Crítica', alta: '🟠 Alta', media: '🟡 Média', baixa: '🟢 Baixa' }
 const PRIO_ORDER: Record<Prioridade, number> = { critica: 0, alta: 1, media: 2, baixa: 3 }
 const STATUS_LABEL: Record<Status, string> = { pendente: 'Pendente', em_andamento: 'Em andamento', concluido: 'Concluído', bloqueado: 'Bloqueado' }
@@ -14,6 +16,72 @@ const RESP_COLOR: Record<Responsavel, string> = {
   rodrigo: 'bg-purple-50 text-purple-700 border-purple-200',
 }
 
+type Perfil = 'gestor' | 'analista' | null
+
+// ─── Login Screen ─────────────────────────────────────────────────────────────
+function LoginScreen({ onLogin }: { onLogin: (perfil: Perfil) => void }) {
+  const [senha, setSenha] = useState('')
+  const [erro, setErro] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const entrar = (perfil: 'gestor' | 'analista') => {
+    setErro('')
+    if (perfil === 'gestor') {
+      if (senha !== SENHA_GESTOR) { setErro('Senha incorreta.'); return }
+    }
+    setLoading(true)
+    if (typeof window !== 'undefined') localStorage.setItem('sg_perfil', perfil)
+    setTimeout(() => { onLogin(perfil); setLoading(false) }, 300)
+  }
+
+  return (
+    <div className="min-h-screen bg-white flex items-center justify-center px-4">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-8">
+          <h1 className="font-display text-2xl font-800 text-black tracking-tight">Demandas</h1>
+          <p className="text-sm text-gray-400 mt-1">Saint Germain Brand</p>
+        </div>
+
+        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 space-y-4">
+          {/* Analista */}
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wider mb-3">Entrar como</p>
+            <button
+              className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50 transition-all text-left"
+              onClick={() => entrar('analista')}>
+              <span className="text-2xl">👤</span>
+              <div>
+                <p className="text-sm font-600 text-black">Rodrigo</p>
+                <p className="text-xs text-gray-400">Visualizar, atualizar status e comentar</p>
+              </div>
+            </button>
+          </div>
+
+          <div className="border-t border-gray-200" />
+
+          {/* Gestor */}
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wider mb-3">Acesso gestor</p>
+            <input
+              className="field mb-3"
+              type="password"
+              placeholder="Senha do gestor"
+              value={senha}
+              onChange={e => setSenha(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') entrar('gestor') }}
+            />
+            {erro && <p className="text-xs text-red-500 mb-2">{erro}</p>}
+            <button className="btn-primary w-full" onClick={() => entrar('gestor')} disabled={loading}>
+              {loading ? 'Entrando...' : '🔐 Entrar como Gestor'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function Badge({ type, value, className = '' }: { type: 'prio' | 'status'; value: string; className?: string }) {
   const cls = type === 'prio' ? `prio-${value}` : `status-${value}`
   const label = type === 'prio' ? PRIO_LABEL[value as Prioridade] : STATUS_LABEL[value as Status]
@@ -52,6 +120,7 @@ function ConfirmModal({ msg, onConfirm, onCancel }: { msg: string; onConfirm: ()
   )
 }
 
+// ─── Demanda Form ─────────────────────────────────────────────────────────────
 function DemandaForm({ initial, onSave, onClose }: {
   initial?: Partial<Demanda>
   onSave: (d: Partial<Demanda>) => Promise<void>
@@ -84,7 +153,7 @@ function DemandaForm({ initial, onSave, onClose }: {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl" onClick={e => e.stopPropagation()}>
         <div className="p-6 border-b border-gray-100">
-          <h2 className="font-display text-lg font-700">{initial?.id ? 'Editar demanda' : 'Nova demanda'}</h2>
+          <h2 className="font-display text-lg font-700 text-black">{initial?.id ? 'Editar demanda' : 'Nova demanda'}</h2>
         </div>
         <div className="p-6 space-y-4">
           <div>
@@ -129,8 +198,7 @@ function DemandaForm({ initial, onSave, onClose }: {
               <div className="flex flex-wrap gap-2 mt-2">
                 {tags.map(t => (
                   <span key={t} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-gray-100 border border-gray-200 text-gray-500">
-                    {t}
-                    <button onClick={() => setTags(p => p.filter(x => x !== t))} className="hover:text-black ml-0.5">×</button>
+                    {t}<button onClick={() => setTags(p => p.filter(x => x !== t))} className="hover:text-black ml-0.5">×</button>
                   </span>
                 ))}
               </div>
@@ -148,16 +216,19 @@ function DemandaForm({ initial, onSave, onClose }: {
   )
 }
 
-function DemandaDrawer({ demanda, onClose, onStatusChange, onDelete, onEdit }: {
+// ─── Drawer ───────────────────────────────────────────────────────────────────
+function DemandaDrawer({ demanda, perfil, onClose, onStatusChange, onDelete, onEdit }: {
   demanda: Demanda
+  perfil: Perfil
   onClose: () => void
   onStatusChange: (id: string, status: Status) => Promise<void>
   onDelete: (id: string) => Promise<void>
   onEdit: () => void
 }) {
+  const isGestor = perfil === 'gestor'
   const [comentarios, setComentarios] = useState<Comentario[]>([])
   const [texto, setTexto] = useState('')
-  const [autor, setAutor] = useState(() => typeof window !== 'undefined' ? localStorage.getItem('nome_usuario') || '' : '')
+  const [autor, setAutor] = useState(() => typeof window !== 'undefined' ? localStorage.getItem('nome_usuario') || (perfil === 'analista' ? 'Rodrigo' : '') : '')
   const [sending, setSending] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
@@ -281,8 +352,8 @@ function DemandaDrawer({ demanda, onClose, onStatusChange, onDelete, onEdit }: {
               <input type="file" ref={fileRef} className="hidden" onChange={e => setPendingFile(e.target.files?.[0] || null)} />
             </div>
             <div className="flex gap-2">
-              <button className="btn-ghost text-xs text-red-400 hover:text-red-600" onClick={() => setConfirmDel(true)}>Excluir</button>
-              <button className="btn-ghost text-xs" onClick={onEdit}>Editar</button>
+              {isGestor && <button className="btn-ghost text-xs text-red-400 hover:text-red-600" onClick={() => setConfirmDel(true)}>Excluir</button>}
+              {isGestor && <button className="btn-ghost text-xs" onClick={onEdit}>Editar</button>}
               <button className="btn-primary text-sm" onClick={sendComentario} disabled={sending || uploading || !texto.trim() || !autor.trim()}>
                 {uploading ? 'Enviando...' : sending ? 'Salvando...' : 'Enviar'}
               </button>
@@ -297,6 +368,7 @@ function DemandaDrawer({ demanda, onClose, onStatusChange, onDelete, onEdit }: {
   )
 }
 
+// ─── Stats ────────────────────────────────────────────────────────────────────
 function StatsBar({ demandas }: { demandas: Demanda[] }) {
   const total = demandas.length
   const concluidas = demandas.filter(d => d.status === 'concluido').length
@@ -308,22 +380,24 @@ function StatsBar({ demandas }: { demandas: Demanda[] }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
       {[
-        { label: 'Total', value: total },
-        { label: 'Em andamento', value: andamento },
-        { label: 'Críticas abertas', value: criticas, red: criticas > 0 },
-        { label: 'Do Rodrigo', value: doRodrigo, purple: true },
-        { label: 'Concluídas', value: `${concluidas} (${pct}%)` },
+        { label: 'Total', value: total, style: '' },
+        { label: 'Em andamento', value: andamento, style: '' },
+        { label: 'Críticas abertas', value: criticas, style: criticas > 0 ? 'text-red-500' : '' },
+        { label: 'Do Rodrigo', value: doRodrigo, style: 'text-purple-600' },
+        { label: 'Concluídas', value: `${concluidas} (${pct}%)`, style: '' },
       ].map(s => (
         <div key={s.label} className="bg-gray-50 border border-gray-200 rounded-xl p-3.5">
           <p className="text-xs text-gray-400 mb-1">{s.label}</p>
-          <p className={`font-display text-xl font-700 ${s.red ? 'text-red-500' : s.purple ? 'text-purple-600' : 'text-black'}`}>{s.value}</p>
+          <p className={`font-display text-xl font-700 text-black ${s.style}`}>{s.value}</p>
         </div>
       ))}
     </div>
   )
 }
 
+// ─── Main ─────────────────────────────────────────────────────────────────────
 export default function Home() {
+  const [perfil, setPerfil] = useState<Perfil>(null)
   const [demandas, setDemandas] = useState<Demanda[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -334,6 +408,12 @@ export default function Home() {
   const [filterResp, setFilterResp] = useState<Responsavel | 'todas'>('todas')
   const [search, setSearch] = useState('')
 
+  useEffect(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('sg_perfil') as Perfil : null
+    if (saved) setPerfil(saved)
+    else setLoading(false)
+  }, [])
+
   const load = useCallback(async () => {
     setLoading(true)
     const r = await fetch('/api/demandas')
@@ -341,7 +421,13 @@ export default function Home() {
     setLoading(false)
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { if (perfil) load() }, [perfil, load])
+
+  const sair = () => {
+    if (typeof window !== 'undefined') localStorage.removeItem('sg_perfil')
+    setPerfil(null)
+    setDemandas([])
+  }
 
   const createDemanda = async (d: Partial<Demanda>) => {
     await fetch('/api/demandas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) })
@@ -372,6 +458,10 @@ export default function Home() {
     setSelectedDemanda(null)
   }
 
+  if (!perfil) return <LoginScreen onLogin={p => setPerfil(p)} />
+
+  const isGestor = perfil === 'gestor'
+
   const filtered = demandas
     .filter(d => filterStatus === 'todas' || d.status === filterStatus)
     .filter(d => filterPrio === 'todas' || d.prioridade === filterPrio)
@@ -384,12 +474,22 @@ export default function Home() {
       <div className="flex items-start justify-between mb-8 gap-4">
         <div>
           <h1 className="font-display text-2xl font-800 tracking-tight text-black">Demandas</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Saint Germain Brand — Gestão de atividades</p>
+          <p className="text-sm text-gray-400 mt-0.5">
+            Saint Germain Brand &nbsp;·&nbsp;
+            <span className={isGestor ? 'text-blue-600' : 'text-purple-600'}>
+              {isGestor ? '🔐 Gestor' : '👤 Rodrigo'}
+            </span>
+          </p>
         </div>
-        <button className="btn-primary flex items-center gap-2" onClick={() => { setEditingDemanda(null); setShowForm(true) }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Nova demanda
-        </button>
+        <div className="flex gap-2">
+          {isGestor && (
+            <button className="btn-primary flex items-center gap-2" onClick={() => { setEditingDemanda(null); setShowForm(true) }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Nova demanda
+            </button>
+          )}
+          <button className="btn-ghost text-xs" onClick={sair}>Sair</button>
+        </div>
       </div>
 
       <StatsBar demandas={demandas} />
@@ -468,7 +568,7 @@ export default function Home() {
         </div>
       )}
 
-      {showForm && (
+      {isGestor && showForm && (
         <DemandaForm
           initial={editingDemanda || undefined}
           onSave={editingDemanda ? updateDemanda : createDemanda}
@@ -479,6 +579,7 @@ export default function Home() {
       {selectedDemanda && (
         <DemandaDrawer
           demanda={selectedDemanda}
+          perfil={perfil}
           onClose={() => setSelectedDemanda(null)}
           onStatusChange={statusChange}
           onDelete={deleteDemanda}
