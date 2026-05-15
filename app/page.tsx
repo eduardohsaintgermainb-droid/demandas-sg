@@ -5,9 +5,9 @@ import type { Demanda, Comentario, Prioridade, Status, Responsavel } from '@/lib
 import { format, parseISO, isPast, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
-const USUARIOS = {
-  eduardo: { senha: 'Saint@2026', perfil: 'gestor' as const, nome: 'Eduardo', emoji: '👑' },
-  rodrigo:  { senha: 'Rodrigo@2026', perfil: 'analista' as const, nome: 'Rodrigo', emoji: '👤' },
+const USUARIOS: Record<string, { senha: string; perfil: 'gestor' | 'analista'; nome: string }> = {
+  eduardo: { senha: 'Saint@2026',   perfil: 'gestor',   nome: 'Eduardo' },
+  rodrigo: { senha: 'Rodrigo@2026', perfil: 'analista', nome: 'Rodrigo' },
 }
 
 const PRIO_LABEL: Record<Prioridade, string> = { critica: '🔴 Crítica', alta: '🟠 Alta', media: '🟡 Média', baixa: '🟢 Baixa' }
@@ -20,19 +20,20 @@ const RESP_COLOR: Record<Responsavel, string> = {
 }
 
 type Perfil = 'gestor' | 'analista'
-type Usuario = { key: string; nome: string; perfil: Perfil; emoji: string }
+type UsuarioLogado = { key: string; nome: string; perfil: Perfil }
 
 // ─── Login ────────────────────────────────────────────────────────────────────
-function LoginScreen({ onLogin }: { onLogin: (u: Usuario) => void }) {
-  const [selecionado, setSelecionado] = useState<keyof typeof USUARIOS | null>(null)
+function LoginScreen({ onLogin }: { onLogin: (u: UsuarioLogado) => void }) {
+  const [usuario, setUsuario] = useState('')
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState('')
 
   const entrar = () => {
-    if (!selecionado) return
-    const u = USUARIOS[selecionado]
+    const key = usuario.trim().toLowerCase()
+    const u = USUARIOS[key]
+    if (!u) { setErro('Usuário não encontrado.'); return }
     if (senha !== u.senha) { setErro('Senha incorreta.'); return }
-    onLogin({ key: selecionado, nome: u.nome, perfil: u.perfil, emoji: u.emoji })
+    onLogin({ key, nome: u.nome, perfil: u.perfil })
   }
 
   return (
@@ -42,42 +43,21 @@ function LoginScreen({ onLogin }: { onLogin: (u: Usuario) => void }) {
           <h1 className="font-display text-2xl font-800 text-black tracking-tight">Demandas</h1>
           <p className="text-sm text-gray-400 mt-1">Saint Germain Brand</p>
         </div>
-
         <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 space-y-4">
-          <p className="text-xs text-gray-400 uppercase tracking-wider">Quem é você?</p>
-
-          <div className="grid grid-cols-2 gap-3">
-            {(Object.keys(USUARIOS) as (keyof typeof USUARIOS)[]).map(key => {
-              const u = USUARIOS[key]
-              const ativo = selecionado === key
-              return (
-                <button key={key}
-                  className={`flex flex-col items-center gap-2 p-4 rounded-xl border transition-all ${ativo ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}
-                  onClick={() => { setSelecionado(key); setSenha(''); setErro('') }}>
-                  <span className="text-3xl">{u.emoji}</span>
-                  <span className={`text-sm font-600 ${ativo ? 'text-blue-700' : 'text-black'}`}>{u.nome}</span>
-                </button>
-              )
-            })}
+          <div>
+            <label className="text-xs text-gray-400 uppercase tracking-wider mb-1.5 block">Usuário</label>
+            <input className="field" placeholder="Seu usuário" value={usuario}
+              onChange={e => { setUsuario(e.target.value); setErro('') }}
+              onKeyDown={e => { if (e.key === 'Enter') entrar() }} />
           </div>
-
-          {selecionado && (
-            <div className="space-y-3 pt-1">
-              <input
-                className="field"
-                type="password"
-                placeholder={`Senha de ${USUARIOS[selecionado].nome}`}
-                value={senha}
-                autoFocus
-                onChange={e => { setSenha(e.target.value); setErro('') }}
-                onKeyDown={e => { if (e.key === 'Enter') entrar() }}
-              />
-              {erro && <p className="text-xs text-red-500">{erro}</p>}
-              <button className="btn-primary w-full" onClick={entrar}>
-                Entrar como {USUARIOS[selecionado].nome}
-              </button>
-            </div>
-          )}
+          <div>
+            <label className="text-xs text-gray-400 uppercase tracking-wider mb-1.5 block">Senha</label>
+            <input className="field" type="password" placeholder="Sua senha" value={senha}
+              onChange={e => { setSenha(e.target.value); setErro('') }}
+              onKeyDown={e => { if (e.key === 'Enter') entrar() }} />
+          </div>
+          {erro && <p className="text-xs text-red-500">{erro}</p>}
+          <button className="btn-primary w-full" onClick={entrar}>Entrar</button>
         </div>
       </div>
     </div>
@@ -222,7 +202,7 @@ function DemandaForm({ initial, onSave, onClose }: {
 // ─── Drawer ───────────────────────────────────────────────────────────────────
 function DemandaDrawer({ demanda, usuario, onClose, onStatusChange, onDelete, onEdit }: {
   demanda: Demanda
-  usuario: Usuario
+  usuario: UsuarioLogado
   onClose: () => void
   onStatusChange: (id: string, status: Status) => Promise<void>
   onDelete: (id: string) => Promise<void>
@@ -337,7 +317,8 @@ function DemandaDrawer({ demanda, usuario, onClose, onStatusChange, onDelete, on
         </div>
 
         <div className="p-5 border-t border-gray-100 space-y-3">
-          <textarea className="field" rows={2} placeholder={`Adicionar atualização como ${usuario.nome}...`} value={texto} onChange={e => setTexto(e.target.value)}
+          <textarea className="field" rows={2} placeholder={`Adicionar atualização como ${usuario.nome}...`} value={texto}
+            onChange={e => setTexto(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) sendComentario() }} />
           <div className="flex items-center justify-between gap-3">
             <button className="btn-ghost text-xs flex items-center gap-1.5" onClick={() => fileRef.current?.click()}>
@@ -391,7 +372,7 @@ function StatsBar({ demandas }: { demandas: Demanda[] }) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function Home() {
-  const [usuario, setUsuario] = useState<Usuario | null>(null)
+  const [usuario, setUsuario] = useState<UsuarioLogado | null>(null)
   const [demandas, setDemandas] = useState<Demanda[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -417,7 +398,7 @@ export default function Home() {
 
   useEffect(() => { if (usuario) load() }, [usuario, load])
 
-  const handleLogin = (u: Usuario) => {
+  const handleLogin = (u: UsuarioLogado) => {
     if (typeof window !== 'undefined') localStorage.setItem('sg_usuario', JSON.stringify(u))
     setUsuario(u)
   }
@@ -476,7 +457,7 @@ export default function Home() {
           <p className="text-sm text-gray-400 mt-0.5">
             Saint Germain Brand &nbsp;·&nbsp;
             <span className={isGestor ? 'text-blue-600' : 'text-purple-600'}>
-              {usuario.emoji} {usuario.nome}
+              {usuario.nome}
             </span>
           </p>
         </div>
