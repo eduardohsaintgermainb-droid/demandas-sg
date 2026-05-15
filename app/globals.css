@@ -6,15 +6,15 @@
 :root {
   --font-display: 'Syne', sans-serif;
   --font-body: 'DM Sans', sans-serif;
-  --c-bg: #0a0a0f;
-  --c-surface: #111118;
-  --c-surface2: #18181f;
-  --c-border: rgba(255,255,255,0.07);
-  --c-border2: rgba(255,255,255,0.12);
-  --c-text: #f0f0f5;
-  --c-muted: rgba(240,240,245,0.45);
-  --c-accent: #4d7bff;
-  --c-accent2: #7b9fff;
+  --c-bg: #ffffff;
+  --c-surface: #f8f8f8;
+  --c-surface2: #f0f0f0;
+  --c-border: rgba(0,0,0,0.08);
+  --c-border2: rgba(0,0,0,0.14);
+  --c-text: #0a0a0a;
+  --c-muted: rgba(0,0,0,0.45);
+  --c-accent: #1a3fff;
+  --c-accent2: #2a4fee;
 }
 
 * { box-sizing: border-box; }
@@ -47,11 +47,12 @@ body {
 
 /* Card hover */
 .card-hover {
-  transition: border-color 0.2s, background 0.2s;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
 }
 .card-hover:hover {
-  border-color: rgba(255,255,255,0.14);
+  border-color: rgba(0,0,0,0.2);
   background: var(--c-surface2);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 
 /* Animations */
@@ -79,7 +80,7 @@ body {
 }
 .field:focus { border-color: var(--c-accent); }
 .field::placeholder { color: var(--c-muted); }
-.field option { background: #18181f; }
+.field option { background: #ffffff; color: #0a0a0a; }
 
 .btn-primary {
   background: var(--c-accent);
